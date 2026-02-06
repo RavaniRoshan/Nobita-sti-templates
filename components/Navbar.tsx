@@ -4,33 +4,31 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar: React.FC = () => {
   const [isVisible, setIsVisible] = useState(true);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [isAtTop, setIsAtTop] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Use ref for lastScrollY to avoid stale closures in event listener without re-binding
   const lastScrollY = useRef(0);
 
   useEffect(() => {
-    // Initial check
+    // Initial check for server-side rendering compatibility
     if (typeof window !== 'undefined') {
-      setIsScrolled(window.scrollY > 20);
+      setIsAtTop(window.scrollY < 20);
     }
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       
-      // Determine if we are at the top (for transparency styling)
-      setIsScrolled(currentScrollY > 20);
+      // Determine if we are at the top (affects shape/style)
+      // We use a small buffer (20px) to prevent flickering at strict 0
+      setIsAtTop(currentScrollY < 20);
 
-      // Determine direction and toggle visibility
-      // Don't hide if we are near the top (e.g. bouncing or just starting)
-      // Don't hide if mobile menu is open
+      // Determine visibility (hide on scroll down, show on scroll up)
       if (!mobileMenuOpen) {
         if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
-          // Scrolling DOWN
+          // Scrolling DOWN: Hide
           setIsVisible(false);
         } else {
-          // Scrolling UP
+          // Scrolling UP: Show
           setIsVisible(true);
         }
       }
@@ -42,17 +40,21 @@ const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [mobileMenuOpen]);
 
+  // Dynamic Classes based on state
+  const navContainerClasses = `
+    fixed z-50 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
+    left-0 right-0 mx-auto
+    ${isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}
+    ${isAtTop 
+      ? 'top-0 w-full rounded-none bg-transparent border-b border-transparent py-6' 
+      : 'top-4 w-[95%] md:max-w-5xl rounded-2xl md:rounded-full bg-[#020617]/80 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/50 py-3'
+    }
+  `;
+
   return (
     <>
-      <nav 
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] transform
-          ${isVisible ? 'translate-y-0' : '-translate-y-full'}
-          ${isScrolled 
-            ? 'bg-[#020617]/80 backdrop-blur-xl border-b border-white/5 py-4 shadow-2xl shadow-black/50' 
-            : 'bg-transparent border-transparent py-6'
-          }`}
-      >
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+      <nav className={navContainerClasses}>
+        <div className={`px-6 flex items-center justify-between transition-all duration-500 ${isAtTop ? 'max-w-7xl mx-auto' : 'w-full'}`}>
           {/* Logo Section */}
           <div className="flex items-center gap-3 group cursor-pointer relative z-50">
             <div className="relative w-8 h-8 flex items-center justify-center">
@@ -102,7 +104,7 @@ const Navbar: React.FC = () => {
         </div>
       </nav>
 
-      {/* Mobile Menu Overlay - Rendered outside nav to function even if nav transform behaves oddly (though z-index usually handles it, this is safer structure) */}
+      {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div 
